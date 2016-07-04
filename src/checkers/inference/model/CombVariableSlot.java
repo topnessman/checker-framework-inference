@@ -70,6 +70,8 @@ public class CombVariableSlot extends VariableSlot {
         if (getClass() != obj.getClass())
             return false;
         CombVariableSlot other = (CombVariableSlot) obj;
+        if (this.getId() != other.getId())
+            return false;
         if (first == null) {
             if (other.first != null)
                 return false;
