@@ -2,43 +2,48 @@ package checkers.inference.util;
 
 import checkers.inference.InferenceMain;
 import checkers.inference.SlotManager;
-import checkers.inference.model.AnnotationLocation;
 import checkers.inference.model.ConstraintManager;
 import checkers.inference.model.Slot;
+import checkers.inference.model.VariableSlot;
 import org.checkerframework.framework.type.AnnotatedTypeFactory;
 import org.checkerframework.framework.type.AnnotatedTypeMirror;
-import org.checkerframework.framework.util.ViewpointAdapter;
+import org.checkerframework.framework.type.AbstractViewpointAdapter;
+import org.checkerframework.javacutil.ErrorReporter;
 
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.type.TypeKind;
 
-public class InferenceViewpointAdapter extends ViewpointAdapter<Slot>{
+public class InferenceViewpointAdapter extends AbstractViewpointAdapter {
 
     private final SlotManager slotManager = InferenceMain.getInstance().getSlotManager();
     private final ConstraintManager constraintManager = InferenceMain.getInstance().getConstraintManager();
-    private AnnotationLocation location;
 
-    public void setLocation(AnnotationLocation location) {
-        this.location = location;
+    public InferenceViewpointAdapter(AnnotatedTypeFactory atypeFactory) {
+        super(atypeFactory);
     }
 
     @Override
-    protected Slot combineModifierWithModifier(Slot recvModifier, Slot declModifier, AnnotatedTypeFactory atypeFactory) {
-        Slot combVariableSlot = slotManager.createCombVariableSlot(recvModifier, declModifier);
-        constraintManager.addCombineConstraint(recvModifier, declModifier, combVariableSlot);
-        return combVariableSlot;
+    protected AnnotationMirror extractAnnotationMirror(AnnotatedTypeMirror atm) {
+        final VariableSlot varSlot = slotManager.getVariableSlot(atm);
+        if (varSlot != null) {
+            return slotManager.getAnnotation(varSlot);
+        } else {
+            if (InferenceMain.isHackMode()) {
+                return null;
+            } else {
+                ErrorReporter.errorAbort(atm + " doesn't contain a slot");
+                return null;
+            }
+        }
     }
 
     @Override
-    protected Slot getModifier(AnnotatedTypeMirror atm, AnnotatedTypeFactory f) {
-        return slotManager.getVariableSlot(atm);
+    protected AnnotationMirror combineAnnotationWithAnnotation(
+            AnnotationMirror receiverAnnotation, AnnotationMirror declaredAnnotation) {
+        assert receiverAnnotation != null && declaredAnnotation != null;
+        final Slot recvSlot = slotManager.getSlot(receiverAnnotation);
+        final Slot declSlot = slotManager.getSlot(declaredAnnotation);
+        final Slot combVariableSlot = slotManager.createCombVariableSlot(recvSlot, declSlot);
+        constraintManager.addCombineConstraint(recvSlot, declSlot, combVariableSlot);
+        return slotManager.getAnnotation(combVariableSlot);
     }
-
-    @Override
-    protected AnnotationMirror getAnnotationFromModifier(Slot slot) {
-        return slotManager.getAnnotation(slot);
-    }
-
 }

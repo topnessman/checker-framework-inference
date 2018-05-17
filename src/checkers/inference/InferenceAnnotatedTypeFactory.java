@@ -1,6 +1,5 @@
 package checkers.inference;
 
-import checkers.inference.model.AnnotationLocation;
 import checkers.inference.util.InferenceViewpointAdapter;
 import org.checkerframework.common.basetype.BaseAnnotatedTypeFactory;
 import org.checkerframework.framework.flow.CFAbstractAnalysis;
@@ -24,10 +23,8 @@ import org.checkerframework.framework.type.treeannotator.TreeAnnotator;
 import org.checkerframework.framework.type.visitor.AnnotatedTypeScanner;
 import org.checkerframework.framework.util.AnnotatedTypes;
 import org.checkerframework.framework.util.MultiGraphQualifierHierarchy;
-import org.checkerframework.framework.util.ViewpointAdapter;
 import org.checkerframework.framework.util.defaults.QualifierDefaults;
 import org.checkerframework.javacutil.AnnotationBuilder;
-import org.checkerframework.javacutil.ElementUtils;
 import org.checkerframework.javacutil.ErrorReporter;
 import org.checkerframework.javacutil.Pair;
 import org.checkerframework.javacutil.TreeUtils;
@@ -45,12 +42,10 @@ import java.util.logging.Logger;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
 
 import checkers.inference.dataflow.InferenceAnalysis;
@@ -288,17 +283,9 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
     @Override
     public void postAsMemberOf(final AnnotatedTypeMirror type,
                                final AnnotatedTypeMirror owner, final Element element) {
-        final TypeKind typeKind = type.getKind();
-        if (typeKind != TypeKind.DECLARED && typeKind != TypeKind.ARRAY) {
-            return;
+        if (viewpointAdapter != null) {
+            viewpointAdapter.viewpointAdaptMember(type, owner, element);
         }
-
-        final ElementKind elementKind = element.getKind();
-        if (elementKind == ElementKind.LOCAL_VARIABLE || elementKind == ElementKind.PARAMETER) {
-            return;
-        }
-
-        viewpointAdaptMember(type, owner, element);
         }
 
     /**
@@ -327,7 +314,16 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         }
 
         final List<AnnotatedTypeParameterBounds> result = new ArrayList<>();
-        viewpointAdaptTypeVariableBounds(useType, declaredTypeParameters, mapping, result);
+        for (AnnotatedTypeMirror atm : declaredTypeParameters) {
+            AnnotatedTypeVariable atv = (AnnotatedTypeVariable) atm;
+            AnnotatedTypeMirror upper = typeVarSubstitutor.substitute(mapping, atv.getUpperBound());
+            AnnotatedTypeMirror lower = typeVarSubstitutor.substitute(mapping, atv.getLowerBound());
+            result.add(new AnnotatedTypeParameterBounds(upper, lower));
+        }
+
+        if (viewpointAdapter != null) {
+            viewpointAdapter.viewpointAdaptTypeParameterBounds(ownerOfTypeParams, result);
+        }
 
         return result;
     }
@@ -364,8 +360,8 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         //TODO: Is the asMemberOf correct, was not in Werner's original implementation but I had added it
         //TODO: It is also what the AnnotatedTypeFactory default implementation does
         final AnnotatedExecutableType methodOfReceiver = AnnotatedTypes.asMemberOf(types, this, receiverType, methodElem);
-        if (!ElementUtils.isStatic(methodElem)) {
-            viewpointAdaptMethod(methodElem, receiverType, methodOfReceiver);
+        if (viewpointAdapter != null) {
+            viewpointAdapter.viewpointAdaptMethod(methodElem, receiverType, methodOfReceiver);
         }
         Pair<AnnotatedExecutableType, List<AnnotatedTypeMirror>> mfuPair = substituteTypeArgs(methodInvocationTree, methodElem, methodOfReceiver);
 
@@ -409,7 +405,9 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
         AnnotatedExecutableType constructorType = AnnotatedTypes.asMemberOf(types, this, constructorReturnType, constructorElem);
 
-        constructorType = viewpointAdaptConstructor(constructorReturnType, constructorType);
+        if (viewpointAdapter != null) {
+            viewpointAdapter.viewpointAdaptConstructor(constructorElem, constructorReturnType, constructorType);
+        }
 
         Pair<AnnotatedExecutableType, List<AnnotatedTypeMirror>> substitutedPair = substituteTypeArgs(newClassTree, constructorElem, constructorType);
         inferencePoly.replacePolys(newClassTree, substitutedPair.first);
@@ -596,7 +594,7 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     @Override
     protected InferenceViewpointAdapter createViewpointAdapter() {
-        return withCombineConstraints?new InferenceViewpointAdapter():null;
+        return withCombineConstraints ? new InferenceViewpointAdapter(this) : null;
     }
 }
 
