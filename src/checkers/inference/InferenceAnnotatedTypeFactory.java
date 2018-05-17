@@ -286,7 +286,7 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         if (viewpointAdapter != null) {
             viewpointAdapter.viewpointAdaptMember(type, owner, element);
         }
-        }
+    }
 
     /**
      * TODO: The implementation in AnnotatedTypeFactory essentially replaces the parameterized bounds with concrete bounds
