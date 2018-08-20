@@ -328,7 +328,7 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         //TODO: It is also what the AnnotatedTypeFactory default implementation does
         final AnnotatedExecutableType methodOfReceiver = AnnotatedTypes.asMemberOf(types, this, receiverType, methodElem);
         if (viewpointAdapter != null) {
-            viewpointAdapter.viewpointAdaptMethod(methodElem, receiverType, methodOfReceiver);
+            viewpointAdapter.viewpointAdaptMethod(receiverType, methodElem, methodOfReceiver);
         }
         Pair<AnnotatedExecutableType, List<AnnotatedTypeMirror>> mfuPair = substituteTypeArgs(methodInvocationTree, methodElem, methodOfReceiver);
 
@@ -373,7 +373,7 @@ public class InferenceAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
         AnnotatedExecutableType constructorType = AnnotatedTypes.asMemberOf(types, this, constructorReturnType, constructorElem);
 
         if (viewpointAdapter != null) {
-            viewpointAdapter.viewpointAdaptConstructor(constructorElem, constructorReturnType, constructorType);
+            viewpointAdapter.viewpointAdaptConstructor(constructorReturnType, constructorElem, constructorType);
         }
 
         Pair<AnnotatedExecutableType, List<AnnotatedTypeMirror>> substitutedPair = substituteTypeArgs(newClassTree, constructorElem, constructorType);
